@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WT-Observer 鍙剁墖涓績绾挎柟鍚戠敓鎴愬櫒</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d8e0eb;
+      --blue: #1769e0;
+      --blue-soft: #e9f2ff;
+      --green: #16796c;
+      --orange: #c76b10;
+      --red: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--bg);
+      font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 310px minmax(420px, 1fr) 390px;
+      gap: 16px;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: 0 8px 24px rgba(27, 44, 73, 0.06);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 6px; font-size: 19px; }
+    h2 { margin-bottom: 6px; font-size: 16px; }
+    h3 { margin-bottom: 8px; font-size: 14px; }
+    .muted { color: var(--muted); }
+
+    .controls, .outputs {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    label { color: #344054; font-weight: 650; }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr 88px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--blue); }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 8px 9px;
+      border: 1px solid #c8d3e1;
+      border-radius: 7px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .checks label {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      font-weight: 500;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .metric {
+      padding: 9px;
+      border-radius: 8px;
+      background: #f6f8fb;
+    }
+
+    .metric span { display: block; color: var(--muted); font-size: 12px; }
+    .metric strong { display: block; margin-top: 2px; color: var(--blue); }
+
+    .stage-panel {
+      display: grid;
+      grid-template-rows: auto minmax(420px, 1fr) auto;
+      gap: 12px;
+      min-height: calc(100vh - 32px);
+    }
+
+    .stage {
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background:
+        linear-gradient(#edf2f8 1px, transparent 1px),
+        linear-gradient(90deg, #edf2f8 1px, transparent 1px),
+        #fbfdff;
+      background-size: 28px 28px;
+    }
+
+    svg {
+      width: min(100%, 720px);
+      height: auto;
+      max-height: calc(100vh - 180px);
+      aspect-ratio: 1;
+    }
+
+    .axis { stroke: #b8c4d4; stroke-width: 1.2; }
+    .axis-label { fill: #7a8799; font-size: 15px; }
+    .tower { stroke: #697386; stroke-width: 9; stroke-linecap: round; }
+    .blade { stroke: var(--green); stroke-width: 8; stroke-linecap: round; }
+    .blade.hidden { opacity: 0.18; stroke-dasharray: 10 8; }
+    .hub { fill: #111827; stroke: #fff; stroke-width: 4; }
+    .tip { fill: var(--green); stroke: #fff; stroke-width: 2; }
+    .blade-label { fill: #155f56; font-size: 15px; font-weight: 700; }
+
+    .badge {
+      display: inline-flex;
+      width: fit-content;
+      padding: 4px 9px;
+      border-radius: 999px;
+      color: var(--blue);
+      background: var(--blue-soft);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .warning {
+      display: none;
+      padding: 9px 11px;
+      border: 1px solid #f7c98d;
+      border-radius: 8px;
+      color: #8a4b08;
+      background: #fff7e8;
+    }
+
+    .warning.show { display: block; }
+
+    .card {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fbfcfe;
+    }
+
+    pre, code {
+      font-family: "Cascadia Mono", Consolas, monospace;
+    }
+
+    pre {
+      margin: 0;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #243047;
+      font-size: 12.5px;
+    }
+
+    .equation {
+      padding: 10px;
+      border-left: 3px solid var(--blue);
+      color: #344054;
+      background: #f7faff;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 300px 1fr; }
+      .outputs { grid-column: 1 / -1; }
+      .stage-panel { min-height: 650px; }
+    }
+
+    @media (max-width: 760px) {
+      .app { grid-template-columns: 1fr; padding: 10px; }
+      .outputs { grid-column: auto; }
+      .stage-panel { min-height: auto; }
+      .summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel controls">
+      <div>
+        <h1>WT-Observer 涓績绾跨敓鎴愬櫒</h1>
+        <p class="muted">鎸夌収璁烘枃褰撳墠鐨勫畬鏁存姇褰辨ā鍨嬬敓鎴愪粠杞瘋鎸囧悜鍙跺皷鐨勫綊涓€鍖栦腑蹇冪嚎鏂瑰悜銆?/p>
+      </div>
+
+      <div class="field">
+        <label for="yaw">鐩稿鏈鸿埍鍋忚埅瑙?纬 (掳)</label>
+        <div class="range-row">
+          <input id="yaw" type="range" min="0" max="360" step="1" value="135">
+          <input id="yawNumber" type="number" min="0" max="360" step="1" value="135">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="alpha">鍙剁墖鏃嬭浆瑙?伪 (掳锛屾ā 120掳)</label>
+        <div class="range-row">
+          <input id="alpha" type="range" min="0" max="120" step="1" value="20">
+          <input id="alphaNumber" type="number" min="0" max="120" step="1" value="20">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="pitch">鐩告満淇话瑙?胃 (掳)</label>
+        <div class="range-row">
+          <input id="pitch" type="range" min="-60" max="60" step="1" value="15">
+          <input id="pitchNumber" type="number" min="-60" max="60" step="1" value="15">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="roll">鐩告満妯粴瑙?蠁 (掳)</label>
+        <div class="range-row">
+          <input id="roll" type="range" min="-45" max="45" step="1" value="-8">
+          <input id="rollNumber" type="number" min="-45" max="45" step="1" value="-8">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>姹傝В鍣ㄥ彲瑙佸彾鐗?/label>
+        <div class="checks">
+          <label><input type="checkbox" data-blade="1" checked>鍙剁墖 1</label>
+          <label><input type="checkbox" data-blade="2" checked>鍙剁墖 2</label>
+          <label><input type="checkbox" data-blade="3" checked>鍙剁墖 3</label>
+        </div>
+        <span class="muted">鑷冲皯淇濈暀涓ょ墖鍙剁墖锛涘浘涓粛浠ヨ櫄绾挎樉绀烘湭閫夊彾鐗囥€?/span>
+      </div>
+
+      <div class="equation">R(伪,纬,胃,蠁) = R岬?-蠁) R鈧?-胃) R饾搹(纬) R岬?伪)</div>
+    </section>
+
+    <section class="panel stage-panel">
+      <div>
+        <h2>褰掍竴鍖栧浘鍍忓钩闈㈡柟鍚?/h2>
+        <p class="muted">鍧愭爣绾﹀畾锛歑 鍚戝彸锛孼 鍚戜笂锛涙瘡鏉℃柟鍚戝潎鐙珛鍗曚綅鍖栥€?/p>
+      </div>
+
+      <div class="stage">
+        <svg viewBox="0 0 640 640" role="img" aria-label="鍙剁墖涓績绾挎柟鍚戠ず鎰忓浘">
+          <line class="axis" x1="35" y1="320" x2="605" y2="320"></line>
+          <line class="axis" x1="320" y1="35" x2="320" y2="605"></line>
+          <text class="axis-label" x="590" y="309">+X</text>
+          <text class="axis-label" x="330" y="50">+Z</text>
+          <line class="tower" x1="320" y1="320" x2="320" y2="595"></line>
+          <g id="blades"></g>
+          <circle class="hub" cx="320" cy="320" r="18"></circle>
+        </svg>
+      </div>
+
+      <div>
+        <div class="summary">
+          <div class="metric"><span>鏈濆悜绫诲埆</span><strong id="orientationMetric"></strong></div>
+          <div class="metric"><span>渚ц璺濈</span><strong id="sideDistanceMetric"></strong></div>
+          <div class="metric"><span>鍙鍙剁墖</span><strong id="visibleMetric"></strong></div>
+        </div>
+        <p id="sideWarning" class="warning"></p>
+      </div>
+    </section>
+
+    <section class="panel outputs">
+      <div>
+        <h2>姹傝В鍣ㄨ緭鍏?/h2>
+        <p class="muted">鍙洿鎺ュ鍒跺埌 Python 绀轰緥銆傛湞鍚戠被鍒粎鐢ㄤ簬绛涢€夌浉瀵瑰亸鑸鍒嗘敮銆?/p>
+      </div>
+
+      <span class="badge" id="orientationBadge"></span>
+
+      <div class="card">
+        <h3>鍗曚綅鏂瑰悜</h3>
+        <pre id="vectorOutput"></pre>
+      </div>
+
+      <div class="card">
+        <h3>Python</h3>
+        <pre id="pythonOutput"></pre>
+      </div>
+
+      <div class="card">
+        <h3>JSON</h3>
+        <pre id="jsonOutput"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const BETAS_DEG = {1: 0, 2: 120, 3: 240};
+    const ORIENTATION_ZH = {
+      back: "鑳岄潰",
+      back_right: "鑳岄潰鍋忓彸",
+      right: "鍙充晶",
+      front_right: "姝ｉ潰鍋忓彸",
+      front: "姝ｉ潰",
+      front_left: "姝ｉ潰鍋忓乏",
+      left: "宸︿晶",
+      back_left: "鑳岄潰鍋忓乏",
+    };
+
+    const els = {
+      yaw: document.getElementById("yaw"),
+      yawNumber: document.getElementById("yawNumber"),
+      alpha: document.getElementById("alpha"),
+      alphaNumber: document.getElementById("alphaNumber"),
+      pitch: document.getElementById("pitch"),
+      pitchNumber: document.getElementById("pitchNumber"),
+      roll: document.getElementById("roll"),
+      rollNumber: document.getElementById("rollNumber"),
+      checks: [...document.querySelectorAll("[data-blade]")],
+      blades: document.getElementById("blades"),
+      orientationMetric: document.getElementById("orientationMetric"),
+      sideDistanceMetric: document.getElementById("sideDistanceMetric"),
+      visibleMetric: document.getElementById("visibleMetric"),
+      sideWarning: document.getElementById("sideWarning"),
+      orientationBadge: document.getElementById("orientationBadge"),
+      vectorOutput: document.getElementById("vectorOutput"),
+      pythonOutput: document.getElementById("pythonOutput"),
+      jsonOutput: document.getElementById("jsonOutput"),
+    };
+
+    const rad = deg => deg * Math.PI / 180;
+    const normalize360 = deg => ((deg % 360) + 360) % 360;
+    const fmt = value => Math.abs(value) < 5e-10 ? "0.000000" : value.toFixed(6);
+
+    function clamp(value, min, max) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : min;
+    }
+
+    function angularDistance(a, b) {
+      return Math.abs(((a - b + 180) % 360 + 360) % 360 - 180);
+    }
+
+    function orientationClass(yawDeg) {
+      const yaw = normalize360(yawDeg);
+      if (angularDistance(yaw, 0) < 1e-8) return "back";
+      if (angularDistance(yaw, 90) < 1e-8) return "right";
+      if (angularDistance(yaw, 180) < 1e-8) return "front";
+      if (angularDistance(yaw, 270) < 1e-8) return "left";
+      if (yaw < 90) return "back_right";
+      if (yaw < 180) return "front_right";
+      if (yaw < 270) return "front_left";
+      return "back_left";
+    }
+
+    function projectDirections(alphaDeg, yawDeg, pitchDeg, rollDeg) {
+      const alpha = rad(alphaDeg);
+      const gamma = rad(normalize360(yawDeg));
+      const pitch = rad(pitchDeg);
+      const roll = rad(rollDeg);
+      const cg = Math.cos(gamma);
+      const sg = Math.sin(gamma);
+      const cp = Math.cos(pitch);
+      const sp = Math.sin(pitch);
+      const cr = Math.cos(roll);
+      const sr = Math.sin(roll);
+
+      return Object.entries(BETAS_DEG).map(([idText, betaDeg]) => {
+        const id = Number(idText);
+        const q = alpha + rad(betaDeg);
+        const sq = Math.sin(q);
+        const cq = Math.cos(q);
+        const a = sq * cg;
+        const b = -sq * sg * sp + cq * cp;
+        const y = sq * sg * cp + cq * sp;
+        const x = a * cr - b * sr;
+        const z = a * sr + b * cr;
+        const projectionNorm = Math.hypot(x, z);
+        return {
+          id,
+          camera: [x, y, z],
+          projected: [x, z],
+          unit: projectionNorm > 1e-12 ? [x / projectionNorm, z / projectionNorm] : null,
+          projectionNorm,
+        };
+      });
+    }
+
+    function selectedBladeIds() {
+      let ids = els.checks.filter(el => el.checked).map(el => Number(el.dataset.blade));
+      if (ids.length < 2) {
+        const unchecked = els.checks.find(el => !el.checked);
+        if (unchecked) unchecked.checked = true;
+        ids = els.checks.filter(el => el.checked).map(el => Number(el.dataset.blade));
+      }
+      return ids;
+    }
+
+    function draw(vectors, visibleIds) {
+      const ns = "http://www.w3.org/2000/svg";
+      const cx = 320;
+      const cy = 320;
+      const length = 205;
+      const start = 20;
+      els.blades.replaceChildren();
+
+      vectors.forEach(vector => {
+        if (!vector.unit) return;
+        const [x, z] = vector.unit;
+        const isVisible = visibleIds.includes(vector.id);
+        const line = document.createElementNS(ns, "line");
+        line.setAttribute("class", `blade${isVisible ? "" : " hidden"}`);
+        line.setAttribute("x1", cx + x * start);
+        line.setAttribute("y1", cy - z * start);
+        line.setAttribute("x2", cx + x * length);
+        line.setAttribute("y2", cy - z * length);
+        els.blades.appendChild(line);
+
+        const tip = document.createElementNS(ns, "circle");
+        tip.setAttribute("class", "tip");
+        tip.setAttribute("cx", cx + x * length);
+        tip.setAttribute("cy", cy - z * length);
+        tip.setAttribute("r", 6);
+        tip.style.opacity = isVisible ? "1" : "0.25";
+        els.blades.appendChild(tip);
+
+        const label = document.createElementNS(ns, "text");
+        label.setAttribute("class", "blade-label");
+        label.setAttribute("x", cx + x * (length + 17));
+        label.setAttribute("y", cy - z * (length + 17));
+        label.setAttribute("text-anchor", "middle");
+        label.textContent = String(vector.id);
+        label.style.opacity = isVisible ? "1" : "0.35";
+        els.blades.appendChild(label);
+      });
+    }
+
+    function render() {
+      const yaw = clamp(els.yaw.value, 0, 360);
+      const alpha = clamp(els.alpha.value, 0, 120);
+      const pitch = clamp(els.pitch.value, -60, 60);
+      const roll = clamp(els.roll.value, -45, 45);
+      const visibleIds = selectedBladeIds();
+      const vectors = projectDirections(alpha, yaw, pitch, roll);
+      const orientation = orientationClass(yaw);
+      const sideDistance = Math.min(angularDistance(yaw, 90), angularDistance(yaw, 270));
+      const exactSide = sideDistance < 1e-8;
+      const nearSide = sideDistance <= 5;
+
+      draw(vectors, visibleIds);
+      els.orientationMetric.textContent = `${orientation} / ${ORIENTATION_ZH[orientation]}`;
+      els.sideDistanceMetric.textContent = `${sideDistance.toFixed(1)}掳`;
+      els.visibleMetric.textContent = visibleIds.join(", ");
+      els.orientationBadge.textContent = `orientation_class = "${orientation}"`;
+
+      els.sideWarning.classList.toggle("show", nearSide);
+      els.sideWarning.textContent = exactSide
+        ? "绮剧‘渚ц锛氳繛缁彾鐗囨棆杞涓嶅彲瑙傦紝璁烘枃姹傝В鍣ㄤ細瑕佹眰閲嶆柊瑙傛祴銆?
+        : "鎺ヨ繎渚ц锛氶棶棰樻潯浠舵暟鍙樺樊锛屼腑蹇冪嚎鍜屽Э鎬佽宸彲鑳借鏀惧ぇ銆?;
+
+      const validVectors = vectors.filter(v => visibleIds.includes(v.id) && v.unit);
+      els.vectorOutput.textContent = validVectors.map(v =>
+        `blade ${v.id}: (${fmt(v.unit[0])}, ${fmt(v.unit[1])})   |projection|=${fmt(v.projectionNorm)}`
+      ).join("\n");
+
+      const pairLines = validVectors.map(v =>
+        `    ${v.id}: (${fmt(v.unit[0])}, ${fmt(v.unit[1])}),`
+      ).join("\n");
+      els.pythonOutput.textContent =
+`pairs = {
+${pairLines}
+}
+
+result = solve_pose_from_unit_centerlines(
+    pairs,
+    orientation_class="${orientation}",
+    camera_pitch_deg=${pitch.toFixed(1)},
+    camera_roll_deg=${roll.toFixed(1)},
+)
+
+print(result["best"]["alpha_deg_120"])
+print(result["best"]["relative_yaw_deg_360"])`;
+
+      const json = {
+        truth: {
+          blade_rotation_deg: alpha,
+          relative_yaw_deg: normalize360(yaw),
+          camera_pitch_deg: pitch,
+          camera_roll_deg: roll,
+          orientation_class: orientation,
+        },
+        unit_pairs: Object.fromEntries(validVectors.map(v => [v.id, v.unit.map(Number)])),
+      };
+      els.jsonOutput.textContent = JSON.stringify(json, null, 2);
+    }
+
+    function bindRange(rangeEl, numberEl, min, max) {
+      rangeEl.addEventListener("input", () => {
+        numberEl.value = rangeEl.value;
+        render();
+      });
+      numberEl.addEventListener("input", () => {
+        const value = clamp(numberEl.value, min, max);
+        rangeEl.value = value;
+        render();
+      });
+      numberEl.addEventListener("change", () => {
+        const value = clamp(numberEl.value, min, max);
+        numberEl.value = value;
+        rangeEl.value = value;
+        render();
+      });
+    }
+
+    bindRange(els.yaw, els.yawNumber, 0, 360);
+    bindRange(els.alpha, els.alphaNumber, 0, 120);
+    bindRange(els.pitch, els.pitchNumber, -60, 60);
+    bindRange(els.roll, els.rollNumber, -45, 45);
+    els.checks.forEach(el => el.addEventListener("change", render));
+    render();
+  </script>
+</body>
+</html>
+
