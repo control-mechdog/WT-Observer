@@ -15,6 +15,8 @@ direction generator.
   independent centerline lengths, camera pitch/roll, and exact side-view degeneracy.
 - `wt_pose_with_orientation.py`: compatibility imports for scripts using the earlier
   filename.
+- `evaluation/`: reproducibility scripts and reference summaries for the geometric
+  solver experiments reported in the paper.
 
 ## Model conventions
 
@@ -46,8 +48,12 @@ Python 3.10 or later is recommended.
 ```bash
 python -m pip install -r requirements.txt
 python -m unittest test_geometric_solver.py -v
+python -m unittest evaluation/test_residual_blade_deformation.py -v
 node test_web_model.js
 ```
+
+See `evaluation/README.md` for commands that reproduce the centerline-noise,
+camera-attitude-noise, residual-deformation, and near-side-view experiments.
 
 ## Minimal example
 
@@ -75,4 +81,3 @@ print(result["best"]["relative_yaw_deg_360"])
 
 Open `wind_turbine_vector_ui.html` directly in a modern browser to generate matching
 unit centerline directions without running a server.
-

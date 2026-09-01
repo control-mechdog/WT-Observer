@@ -1,4 +1,6 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-
+evaluation/results/*_trials.csv
+evaluation/results/*.pdf
+evaluation/results/*.png
